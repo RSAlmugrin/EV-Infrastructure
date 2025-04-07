@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شاحن - محطات شحن السيارات الكهربائية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        
+        .map-container {
+            height: 400px;
+            background-color: #eee;
+        }
+        
+        .charging-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+        
+        .search-box {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .station-card:hover {
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+        }
+        
+        /* Leaflet adjustments for RTL */
+        .leaflet-control-container .leaflet-left {
+            right: 0;
+            left: auto;
+        }
+        .leaflet-control-container .leaflet-right {
+            left: 0;
+            right: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-green-600 text-white">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-bolt text-2xl"></i>
+                    <h1 class="text-2xl font-bold">شاحن</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+    <!-- زر تسجيل الدخول مع حدث onclick -->
+    <button onclick="handleLogin()" class="bg-white text-green-600 px-4 py-2 rounded-full font-medium hover:bg-green-50 transition-colors">
+        تسجيل الدخول
+    </button>
+    
+    <button class="p-2 rounded-full bg-green-700 text-white">
+        <i class="fas fa-bell"></i>
+    </button>
+</div>
+
+<script>
+function handleLogin() {
+    // هنا يمكنك إضافة منطق الاتصال بالباكند
+    // مثال باستخدام fetch:
+    fetch('/api/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            // بيانات المستخدم
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // توجيه المستخدم بعد تسجيل الدخول الناجح
+            window.location.href = '/dashboard';
+        } else {
+            // عرض رسالة خطأ
+            alert('فشل تسجيل الدخول: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('حدث خطأ أثناء محاولة تسجيل الدخول');
+    });
+}
+</script>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- Search Section -->
+        <div class="search-box bg-white rounded-2xl p-4 mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <label class="block text-gray-700 mb-2 font-medium">ابحث عن موقع</label>
+                    <div class="relative">
+                        <input type="text" placeholder="أدخل المنطقة أو المدينة" class="w-full p-4 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <i class="fas fa-search absolute right-4 top-4 text-gray-400"></i>
+                    </div>
+                </div>
+                <div class="w-full md:w-48">
+                    <label class="block text-gray-700 mb-2 font-medium">نوع الشاحن</label>
+                    <select class="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option>الكل</option>
+                        <option>نوع 2 (22kW)</option>
+                        <option>CCS (50kW+)</option>
+                        <option>شاحن سريع</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button class="bg-green-600 text-white px-6 py-4 rounded-xl font-medium hover:bg-green-700 transition">
+                        <i class="fas fa-search ml-2"></i>
+                        بحث
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map and List View -->
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- Map View -->
+            <div class="lg:w-2/3">
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md">
+                    <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                        <h2 class="text-xl font-bold text-gray-800">خريطة المواقع</h2>
+                        <button id="locate-me" class="bg-green-100 text-green-600 px-3 py-1 rounded-md text-sm font-medium">
+                            <i class="fas fa-location-arrow mr-1"></i> موقعي الحالي
+                        </button>
+                    </div>
+                    <div id="map" class="map-container rounded-b-2xl"></div>
+                </div>
+            </div>
+
+            <!-- Nearby Stations -->
+            <div class="lg:w-1/3">
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-xl font-bold text-gray-800">أقرب المحطات</h2>
+                    </div>
+                    <div class="overflow-y-auto" style="max-height: 500px;">
+                        <!-- Station 1 -->
+                        <div class="station-card p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer" data-lat="21.5433" data-lng="39.1728">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="font-bold text-lg">مجمع رد سي مول</h3>
+                                    <p class="text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-green-500 mr-1"></i> شمال جدة، طريق الملك عبدالله</p>
+                                    <div class="flex items-center mt-2">
+                                        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">متاح</span>
+                                        <span class="text-gray-500 text-sm mr-2 ml-2">0.5 كم</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="charging-animation text-green-500 text-2xl">
+                                        <i class="fas fa-charging-station"></i>
+                                    </div>
+                                    <p class="text-gray-800 font-medium mt-1">4.5 <i class="fas fa-star text-yellow-400"></i></p>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-bolt text-yellow-500 mr-1"></i> 50kW سريع</p>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-credit-card text-blue-500 mr-1"></i> 2.5 ر.س/ك.و.س</p>
+                                </div>
+                                <button class="bg-green-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-700">
+                                    التوجيه <i class="fas fa-directions ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Station 2 -->
+                        <div class="station-card p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer" data-lat="21.5633" data-lng="39.1828">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="font-bold text-lg">مركز العليا</h3>
+                                    <p class="text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-green-500 mr-1"></i> حي العليا، الرياض</p>
+                                    <div class="flex items-center mt-2">
+                                        <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">مشغول</span>
+                                        <span class="text-gray-500 text-sm mr-2 ml-2">1.2 كم</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-gray-400 text-2xl">
+                                        <i class="fas fa-charging-station"></i>
+                                    </div>
+                                    <p class="text-gray-800 font-medium mt-1">4.2 <i class="fas fa-star text-yellow-400"></i></p>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-bolt text-yellow-500 mr-1"></i> 22kW نوع 2</p>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-credit-card text-blue-500 mr-1"></i> 2.0 ر.س/ك.و.س</p>
+                                </div>
+                                <button class="bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-sm">
+                                    التوجيه <i class="fas fa-directions ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Station 3 -->
+                        <div class="station-card p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer" data-lat="21.5533" data-lng="39.1628">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="font-bold text-lg">فندق كراون بلازا</h3>
+                                    <p class="text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-green-500 mr-1"></i> الخبر، كورنيش</p>
+                                    <div class="flex items-center mt-2">
+                                        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">متاح</span>
+                                        <span class="text-gray-500 text-sm mr-2 ml-2">2.1 كم</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="charging-animation text-green-500 text-2xl">
+                                        <i class="fas fa-charging-station"></i>
+                                    </div>
+                                    <p class="text-gray-800 font-medium mt-1">4.8 <i class="fas fa-star text-yellow-400"></i></p>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-bolt text-yellow-500 mr-1"></i> 150kW فائق السرعة</p>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-credit-card text-blue-500 mr-1"></i> 3.0 ر.س/ك.و.س</p>
+                                </div>
+                                <button class="bg-green-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-700">
+                                    التوجيه <i class="fas fa-directions ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Station 4 -->
+                        <div class="station-card p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer" data-lat="21.5733" data-lng="39.1928">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="font-bold text-lg">الرياض بارك</h3>
+                                    <p class="text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-green-500 mr-1"></i> طريق الملك فهد، الرياض</p>
+                                    <div class="flex items-center mt-2">
+                                        <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">قريبًا</span>
+                                        <span class="text-gray-500 text-sm mr-2 ml-2">3.5 كم</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-gray-400 text-2xl">
+                                        <i class="fas fa-tools"></i>
+                                    </div>
+                                    <p class="text-gray-800 font-medium mt-1">--</p>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-bolt text-yellow-500 mr-1"></i> 120kW فائق السرعة</p>
+                                    <p class="text-sm text-gray-600"><i class="fas fa-info-circle text-blue-500 mr-1"></i> قيد الإنشاء</p>
+                                </div>
+                                <button class="bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-sm" disabled>
+                                    التوجيه <i class="fas fa-directions ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="mt-12">
+            <h2 class="text-2xl font-bold text-center mb-8">مميزات تطبيق شاحن</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-md text-center">
+                    <div class="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-map-marked-alt text-green-600 text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">خرائط دقيقة</h3>
+                    <p class="text-gray-600">ابحث عن أقرب محطات الشحن ومواقف السيارات المخصصة للسيارات الكهربائية في جميع أنحاء المملكة</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-md text-center">
+                    <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-bolt text-blue-600 text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">حالة الشحن اللحظية</h3>
+                    <p class="text-gray-600">اعرف حالة الشاحن قبل الوصول - متاح أو مشغول - ووفر وقتك وجهودك</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-md text-center">
+                    <div class="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-car text-purple-600 text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">تكامل مع السيارات</h3>
+                    <p class="text-gray-600">تكامل مع سيارات Ceer وغيرها من السيارات الكهربائية لتجربة شحن سلسة</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12 mt-12">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <i class="fas fa-bolt text-2xl text-green-400"></i>
+                        <h3 class="text-xl font-bold">شاحن</h3>
+                    </div>
+                    <p class="text-gray-400">تطبيق شاحن هو الحل الأمثل للعثور على محطات شحن السيارات الكهربائية ومواقفها في المملكة العربية السعودية.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-4">روابط سريعة</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">الصفحة الرئيسية</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">البحث عن محطات</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">إضافة محطة</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">الأسئلة الشائعة</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-4">الدعم</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">اتصل بنا</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">الإبلاغ عن مشكلة</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">سياسة الخصوصية</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">شروط الاستخدام</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-4">حمل التطبيق</h4>
+                    <div class="flex space-x-2 mb-4">
+                        <button class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg flex items-center">
+                            <i class="fab fa-apple text-xl mr-2"></i>
+                            <span>App Store</span>
+                        </button>
+                        <button class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg flex items-center">
+                            <i class="fab fa-google-play text-xl mr-2"></i>
+                            <span>Play Store</span>
+                        </button>
+                    </div>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white text-xl"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-white text-xl"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-white text-xl"><i class="fab fa-linkedin"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+                <p>© 2023 شاحن. جميع الحقوق محفوظة.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize the map
+            const map = L.map('map').setView([21.5433, 39.1728], 12);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+                const allStations = [
+                    // Jeddah stations
+                    {
+                        id: 1,
+                        name: "مجمع رد سي مول",
+                        address: "شمال جدة، طريق الملك عبدالله",
+                        city: "جدة",
+                        lat: 21.5433,
+                        lng: 39.1728,
+                        status: "متاح",
+                        type: "ccs",
+                        power: "50kW",
+                        price: "2.5 ر.س/ك.و.س",
+                        distance: "0.5 كم",
+                        rating: 4.5,
+                        comingSoon: false
+                    },
+                    {
+                        id: 2,
+                        name: "النخيل مول",
+                        address: "حي النخيل، جدة",
+                        city: "جدة",
+                        lat: 21.5483,
+                        lng: 39.1778,
+                        status: "متاح",
+                        type: "fast",
+                        power: "120kW",
+                        price: "3.0 ر.س/ك.و.س",
+                        distance: "1.0 كم",
+                        rating: 4.7,
+                        comingSoon: false
+                    },
+                    
+                    // Riyadh stations
+                    {
+                        id: 3,
+                        name: "مركز العليا",
+                        address: "حي العليا، الرياض",
+                        city: "الرياض",
+                        lat: 24.7633,
+                        lng: 46.6728,
+                        status: "مشغول",
+                        type: "type2",
+                        power: "22kW",
+                        price: "2.0 ر.س/ك.و.س",
+                        distance: "1.2 كم",
+                        rating: 4.2,
+                        comingSoon: false
+                    },
+                    {
+                        id: 4,
+                        name: "الرياض بارك",
+                        address: "طريق الملك فهد، الرياض",
+                        city: "الرياض",
+                        lat: 24.7733,
+                        lng: 46.6828,
+                        status: "قريبًا",
+                        type: "fast",
+                        power: "120kW",
+                        price: "قيد الإنشاء",
+                        distance: "3.5 كم",
+                        rating: 0,
+                        comingSoon: true
+                    },
+                    
+                    // Khobar stations
+                    {
+                        id: 5,
+                        name: "فندق كراون بلازا",
+                        address: "الخبر، كورنيش",
+                        city: "الخبر",
+                        lat: 26.2833,
+                        lng: 50.2128,
+                        status: "متاح",
+                        type: "fast",
+                        power: "150kW",
+                        price: "3.0 ر.س/ك.و.س",
+                        distance: "2.1 كم",
+                        rating: 4.8,
+                        comingSoon: false
+                    },
+                    {
+                        id: 6,
+                        name: "الراشد مول",
+                        address: "حي الراشد، الخبر",
+                        city: "الخبر",
+                        lat: 26.2933,
+                        lng: 50.2028,
+                        status: "متاح",
+                        type: "ccs",
+                        power: "60kW",
+                        price: "2.8 ر.س/ك.و.س",
+                        distance: "1.5 كم",
+                        rating: 4.6,
+                        comingSoon: false
+                    },
+                    {
+                        id: 7,
+                        name: "الافنيوز الخبر",
+                        address: "حي النخيل، الخبر",
+                        city: "الخبر",
+                        lat: 26.2733,
+                        lng: 50.2228,
+                        status: "قريبًا",
+                        type: "fast",
+                        power: "200kW",
+                        price: "قيد الإنشاء",
+                        distance: "3.2 كم",
+                        rating: 0,
+                        comingSoon: true
+                    },
+                    
+                    // Dammam stations
+                    {
+                        id: 8,
+                        name: "الدانة مول",
+                        address: "الدمام، طريق الملك فهد",
+                        city: "الدمام",
+                        lat: 26.3933,
+                        lng: 50.1028,
+                        status: "متاح",
+                        type: "ccs",
+                        power: "50kW",
+                        price: "2.5 ر.س/ك.و.س",
+                        distance: "2.8 كم",
+                        rating: 4.3,
+                        comingSoon: false
+                    },
+                    {
+                        id: 9,
+                        name: "الواحة مول",
+                        address: "حي الواحة، الدمام",
+                        city: "الدمام",
+                        lat: 26.3833,
+                        lng: 50.1128,
+                        status: "متاح",
+                        type: "type2",
+                        power: "22kW",
+                        price: "2.0 ر.س/ك.و.س",
+                        distance: "1.8 كم",
+                        rating: 4.0,
+                        comingSoon: false
+                    },
+                    
+                    // Dhahran stations
+                    {
+                        id: 10,
+                        name: "الظهران مول",
+                        address: "حي الجامعة، الظهران",
+                        city: "الظهران",
+                        lat: 26.3233,
+                        lng: 50.1528,
+                        status: "متاح",
+                        type: "fast",
+                        power: "100kW",
+                        price: "3.2 ر.س/ك.و.س",
+                        distance: "0.7 كم",
+                        rating: 4.9,
+                        comingSoon: false
+                    },
+                    {
+                        id: 11,
+                        name: "الراشد الظهران",
+                        address: "حي الراشد، الظهران",
+                        city: "الظهران",
+                        lat: 26.3133,
+                        lng: 50.1428,
+                        status: "متاح",
+                        type: "ccs",
+                        power: "50kW",
+                        price: "2.5 ر.س/ك.و.س",
+                        distance: "1.3 كم",
+                        rating: 4.4,
+                        comingSoon: false
+                    },
+                    {
+                        id: 12,
+                        name: "النخيل الظهران",
+                        address: "حي النخيل، الظهران",
+                        city: "الظهران",
+                        lat: 26.3333,
+                        lng: 50.1628,
+                        status: "مشغول",
+                        type: "type2",
+                        power: "22kW",
+                        price: "2.0 ر.س/ك.و.س",
+                        distance: "2.5 كم",
+                        rating: 4.1,
+                        comingSoon: false
+                    }
+                ];
+        
+            
+            // Locate user button
+            const locateButton = document.getElementById('locate-me');
+            locateButton.addEventListener('click', function() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            const userLat = position.coords.latitude;
+                            const userLng = position.coords.longitude;
+                            
+                            // Add user location marker
+                            const userIcon = L.divIcon({
+                                html: '<div class="bg-blue-500 text-white p-2 rounded-full shadow-lg"><i class="fas fa-user"></i></div>',
+                                className: 'leaflet-div-icon',
+                                iconSize: [30, 30]
+                            });
+                            
+                            L.marker([userLat, userLng], {icon: userIcon})
+                                .addTo(map)
+                                .bindPopup("موقعك الحالي")
+                                .openPopup();
+                            
+                            // Center map on user location
+                            map.setView([userLat, userLng], 14);
+                            
+                            // Show success message
+                            alert("تم تحديد موقعك بنجاح!");
+                        },
+                        function(error) {
+                            alert("تعذر الحصول على موقعك. يرجى التأكد من تفعيل خدمة الموقع.");
+                            console.error("Geolocation error:", error);
+                        }
+                    );
+                } else {
+                    alert("المتصفح الخاص بك لا يدعم خدمة الموقع الجغرافي.");
+                }
+            });
+            
+            // Station card click event
+            const stationCards = document.querySelectorAll('.station-card');
+            stationCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const lat = parseFloat(this.getAttribute('data-lat'));
+                    const lng = parseFloat(this.getAttribute('data-lng'));
+                    
+                    // Center map on selected station
+                    map.setView([lat, lng], 15);
+                    
+                    // Highlight selected card
+                    stationCards.forEach(c => c.classList.remove('ring-2', 'ring-green-500'));
+                    this.classList.add('ring-2', 'ring-green-500');
+                });
+            });
+            
+            // Search button event
+            const searchButton = document.querySelector('.search-box button');
+            searchButton.addEventListener('click', function() {
+                alert('سيتم عرض نتائج البحث حسب المعايير المحددة');
+            });
+        });
+    </script>
+</body>
+</html>
+
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شاحن - تسجيل الدخول والتسجيل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f5f5f5;
+        }
+        .auth-container {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .form-toggle {
+            color: #059669;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .form-toggle:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <!-- الهيدر -->
+    <header class="fixed top-0 w-full bg-white shadow-sm py-4 px-6 z-10">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="#" class="text-2xl font-bold text-green-600">
+                <i class="fas fa-bolt mr-2"></i>شاحن
+            </a>
+            <button id="authButton" class="bg-white text-green-600 px-4 py-2 rounded-full font-medium hover:bg-green-50 transition-colors">
+                تسجيل الدخول
+            </button>
+        </div>
+    </header>
+
+    <!-- نافذة المصادقة الرئيسية -->
+    <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="auth-container w-full max-w-md p-8 relative">
+            <button onclick="hideAuthModal()" class="absolute left-4 top-4 text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <!-- تسجيل الدخول -->
+            <div id="loginFormContainer">
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
+                    <i class="fas fa-sign-in-alt text-green-500 ml-2"></i>
+                    تسجيل الدخول
+                </h2>
+                
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label for="loginEmail" class="block text-gray-700 mb-2">البريد الإلكتروني</label>
+                        <input type="email" id="loginEmail" required 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label for="loginPassword" class="block text-gray-700 mb-2">كلمة المرور</label>
+                        <div class="relative">
+                            <input type="password" id="loginPassword" required 
+                                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <button type="button" onclick="togglePassword('loginPassword')" class="absolute left-3 top-3 text-gray-500">
+                                <i class="far fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="rememberMe" class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                            <label for="rememberMe" class="mr-2 block text-sm text-gray-700">تذكرني</label>
+                        </div>
+                        <button type="button" class="text-sm text-green-600 hover:text-green-800">نسيت كلمة المرور؟</button>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition">
+                        تسجيل الدخول
+                    </button>
+                    
+                    <div class="text-center text-sm text-gray-600">
+                        ليس لديك حساب؟ 
+                        <span id="showRegisterForm" class="form-toggle font-medium">أنشئ حسابًا جديدًا</span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- التسجيل -->
+            <div id="registerFormContainer" class="hidden">
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
+                    <i class="fas fa-user-plus text-green-500 ml-2"></i>
+                    إنشاء حساب جديد
+                </h2>
+                
+                <form id="registerForm" class="space-y-4">
+                    <div>
+                        <label for="name" class="block text-gray-700 mb-2">الاسم الكامل</label>
+                        <input type="text" id="name" required 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label for="email" class="block text-gray-700 mb-2">البريد الإلكتروني</label>
+                        <input type="email" id="email" required 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block text-gray-700 mb-2">كلمة المرور</label>
+                        <div class="relative">
+                            <input type="password" id="password" required 
+                                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <button type="button" onclick="togglePassword('password')" class="absolute left-3 top-3 text-gray-500">
+                                <i class="far fa-eye"></i>
+                            </button>
+                        </div>
+                        <div id="passwordStrength" class="h-1 mt-1 bg-gray-200 rounded-full hidden">
+                            <div class="h-full rounded-full" id="passwordStrengthBar"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="confirmPassword" class="block text-gray-700 mb-2">تأكيد كلمة المرور</label>
+                        <div class="relative">
+                            <input type="password" id="confirmPassword" required 
+                                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <button type="button" onclick="togglePassword('confirmPassword')" class="absolute left-3 top-3 text-gray-500">
+                                <i class="far fa-eye"></i>
+                            </button>
+                        </div>
+                        <div id="passwordMatch" class="text-sm mt-1 hidden"></div>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="agreeTerms" required class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                        <label for="agreeTerms" class="mr-2 block text-sm text-gray-700">أوافق على <a href="#" class="text-green-600 hover:text-green-800">الشروط والأحكام</a></label>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition">
+                        إنشاء حساب
+                    </button>
+                    
+                    <div class="text-center text-sm text-gray-600">
+                        لديك حساب بالفعل؟ 
+                        <span id="showLoginForm" class="form-toggle font-medium">سجل الدخول</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // التحكم في عرض النماذج
+        function showAuthModal(formType = 'login') {
+            document.getElementById('authModal').classList.remove('hidden');
+            toggleForms(formType);
+        }
+
+        function hideAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+        }
+
+        function toggleForms(formType) {
+            if(formType === 'login') {
+                document.getElementById('loginFormContainer').classList.remove('hidden');
+                document.getElementById('registerFormContainer').classList.add('hidden');
+                document.getElementById('authButton').textContent = 'تسجيل الدخول';
+            } else {
+                document.getElementById('loginFormContainer').classList.add('hidden');
+                document.getElementById('registerFormContainer').classList.remove('hidden');
+                document.getElementById('authButton').textContent = 'إنشاء حساب';
+            }
+        }
+
+        // إظهار/إخفاء كلمة المرور
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.nextElementSibling.querySelector('i');
+            if(input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        // أحداث الأزرار
+        document.getElementById('authButton').addEventListener('click', () => showAuthModal());
+        document.getElementById('showRegisterForm').addEventListener('click', () => toggleForms('register'));
+        document.getElementById('showLoginForm').addEventListener('click', () => toggleForms('login'));
+
+        // التحقق من تطابق كلمة المرور
+        document.getElementById('confirmPassword').addEventListener('input', function() {
+            const matchDiv = document.getElementById('passwordMatch');
+            if(this.value !== document.getElementById('password').value) {
+                matchDiv.textContent = 'كلمة المرور غير متطابقة';
+                matchDiv.className = 'text-sm mt-1 text-red-500';
+                matchDiv.classList.remove('hidden');
+            } else {
+                matchDiv.textContent = 'كلمة المرور متطابقة';
+                matchDiv.className = 'text-sm mt-1 text-green-500';
+                matchDiv.classList.remove('hidden');
+            }
+        });
+
+        // معالجة تسجيل الدخول
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            // ... كود تسجيل الدخول السابق
+        });
+
+        // معالجة التسجيل
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            // ... كود التسجيل السابق
+        });
+
+        // في ملف HTML الخاص بك، عدل دوال التسجيل وتسجيل الدخول كالتالي:
+
+// معالجة التسجيل
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        action: 'register',
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+    };
+    
+    try {
+        const response = await fetch('auth.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            toggleForms('login');
+        } else {
+            alert(data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('حدث خطأ في الاتصال بالخادم');
+    }
+});
+
+// معالجة تسجيل الدخول
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        action: 'login',
+        email: document.getElementById('loginEmail').value,
+        password: document.getElementById('loginPassword').value
+    };
+    
+    try {
+        const response = await fetch('auth.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            window.location.href = 'dashboard.html';
+        } else {
+            alert(data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('حدث خطأ في الاتصال بالخادم');
+    }
+});
+    </script>
+</body>
+</html>
