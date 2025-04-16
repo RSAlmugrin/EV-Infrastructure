@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>موقفك - تطبيق مواقف السيارات</title>
+  <style>
+    body {
+      font-family: 'Tahoma', sans-serif;
+      margin: 0;
+      padding: 0;
+      direction: rtl;
+      background: #f8f9fa;
+    }
+
+    header {
+      background: #6f42c1;
+      color: white;
+      padding: 10px 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .logo img {
+      height: 50px;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    #hero {
+      background: linear-gradient(to bottom, #eee, white);
+      padding: 60px 20px 40px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-content h1 {
+      font-size: 50px;
+      color: #6f42c1;
+      animation: carMove 3s ease-in-out infinite;
+      display: inline-block;
+      position: relative;
+    }
+
+    .hero-content h1::before {
+      content: "🚗";
+      position: absolute;
+      right: -50px;
+      animation: wheelSpin 3s ease-in-out infinite;
+    }
+
+    @keyframes carMove {
+      0% { transform: translateX(0); }
+      50% { transform: translateX(15px); }
+      100% { transform: translateX(0); }
+    }
+
+    @keyframes wheelSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .hero-content p {
+      font-size: 18px;
+      color: #333;
+    }
+
+    .status-cards {
+      background: #6f42c1;
+      padding: 20px;
+      border-radius: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      padding: 40px 20px;
+    }
+
+    .status-card {
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: transform 0.3s;
+    }
+
+    .status-card.available {
+      background: #d4edda; /* اللون الأخضر لكرت المتاح */
+      border: 1px solid #c3e6cb; /* حدود بلون أخضر فاتح */
+    }
+
+    .status-card.busy {
+      background: #f8d7da; /* اللون الأحمر لكرت المشغول */
+      border: 1px solid #f5c6cb; /* حدود بلون أحمر فاتح */
+    }
+
+    .status-card:hover {
+      transform: scale(1.03);
+    }
+
+    .status-icon img {
+      width: 50px;
+      height: 50px;
+    }
+
+    .status-text h3 {
+      margin: 10px 0 5px;
+      color: #6f42c1;
+    }
+
+    #map {
+      height: 500px;
+      width: 100%;
+      margin-top: 40px;
+    }
+
+    footer {
+      background: #6f42c1;
+      color: white;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    footer h3 {
+      margin-bottom: 10px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 20px;
+    }
+
+    .footer-links a {
+      color: white;
+      text-decoration: none;
+    }
+
+    .footer-bottom {
+      font-size: 14px;
+      color: #ddd;
+    }
+
+    .contact-info {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="logo">
+        <img src="Purple.png" alt="شعار موقفك">
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#features">الميزات</a></li>
+          <li><a href="#services">الخدمات</a></li>
+          <li><a href="#contact">اتصل بنا</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <section id="hero">
+    <div class="hero-content">
+      <h1>موقفك</h1>
+      <p>ابحث عن المواقف المتاحة بالقرب منك في خريطة تفاعلية سهلة الاستخدام!</p>
+    </div>
+  </section>
+
+  <div class="status-cards" id="status-cards"></div>
+  <div id="map"></div>
+
+  <footer>
+    <div class="footer-links">
+      <div><a href="#services">الخدمات</a></div>
+      <div><a href="#contact">اتصل بنا</a></div>
+    </div>
+    <h3>موقفك</h3>
+    <p class="footer-bottom">© 2025 جميع الحقوق محفوظة - تصميم وبرمجة موقفك | تواصل معنا عبر البريد <a href="mailto:info@mowqefak.com">info@mowqefak.com</a></p>
+    
+    <div class="contact-info">
+      <p>الهاتف: 555 555 966+</p>
+      <p>مكتب الرياض، المملكة العربية السعودية</p>
+    </div>
+  </footer>
+
+  <script async defer 
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA5FGM4kaDBuk6DuicwN6PX8_a14ill5kU&callback=initMap">
+  </script>
+
+  <script>
+    
+    function initMap() {
+      const defaultLocation = { lat: 24.7136, lng: 46.6753 };
+      const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 13,
+        center: defaultLocation,
+      });
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+            map.setCenter(userLocation);
+            new google.maps.Marker({
+              position: userLocation,
+              map: map,
+              title: "موقعك الحالي"
+            });
+            addNearbyParkings(userLocation, map);
+          },
+          () => {
+            fallback(defaultLocation, map);
+          }
+        );
+      } else {
+        fallback(defaultLocation, map);
+      }
+    }
+
+    function fallback(loc, map) {
+      alert("تعذر تحديد الموقع، عرض الموقع الافتراضي.");
+      map.setCenter(loc);
+      new google.maps.Marker({
+        position: loc,
+        map: map,
+        title: "الموقع الافتراضي"
+      });
+      addNearbyParkings(loc, map);
+    }
+
+    function addNearbyParkings(location, map) {
+        const parkings = [
+          { lat: 24.7137, lng: 46.6754, type: "عادي", status: "متاح", image: "park.png" },
+          { lat: 24.7150, lng: 46.6755, type: "كهربائي", status: "مشغول", image: "elc.png" },
+          { lat: 24.7100, lng: 46.6700, type: "عادي", status: "متاح", image: "park.png" },
+          { lat: 24.7170, lng: 46.6730, type: "كهربائي", status: "متاح", image: "elc.png" },
+          { lat: 24.7180, lng: 46.6720, type: "عادي", status: "مشغول", image: "park.png" },
+          { lat: 24.7120, lng: 46.6760, type: "عادي", status: "متاح", image: "park.png" },
+          { lat: 24.7165, lng: 46.6740, type: "كهربائي", status: "مشغول", image: "elc.png" },
+          { lat: 24.7145, lng: 46.6715, type: "عادي", status: "متاح", image: "park.png" },
+          { lat: 24.7190, lng: 46.6770, type: "كهربائي", status: "متاح", image: "elc.png" },
+          { lat: 24.7130, lng: 46.6780, type: "عادي", status: "مشغول", image: "park.png" },
+        ];
+      
+        parkings.forEach(parking => {
+          const parkingLoc = { lat: parking.lat, lng: parking.lng };
+          const marker = new google.maps.Marker({
+            position: parkingLoc,
+            map: map,
+            title: `موقف ${parking.type}`,
+          });
+      
+          const info = new google.maps.InfoWindow({
+            content: `
+              <div>
+                <h4>${parking.type} - ${parking.status}</h4>
+                <p>حالة الموقف: ${parking.status}</p>
+                <a href="https://www.google.com/maps?q=${parking.lat},${parking.lng}" target="_blank">ابدأ التوجيه</a>
+              </div>
+            `
+          });
+      
+          marker.addListener("click", () => {
+            info.open(map, marker);
+          });
+      
+          const cards = document.getElementById("status-cards");
+          const card = document.createElement("div");
+          card.className = "status-card " + (parking.status === 'مشغول' ? 'busy' : 'available');
+          card.innerHTML = `
+            <a href="https://www.google.com/maps?q=${parking.lat},${parking.lng}" target="_blank">
+              <div class="status-icon">
+                <img src="${parking.image}" alt="${parking.type}" style="width: 50px; height: 50px;">
+              </div>
+              <div class="status-text">
+                <h3>${parking.type}</h3>
+                <p>الحالة: ${parking.status}</p>
+              </div>
+            </a>
+          `;
+          cards.appendChild(card);
+        });
+      }
+  </script>
+
+  <script>
+    fetch('get_parkings.php')
+    .then(response => response.json())
+    .then(data => {
+        data.forEach(parking => {
+            const parkingLoc = { lat: parking.lat, lng: parking.lng };
+            const marker = new google.maps.Marker({
+                position: parkingLoc,
+                map: map,
+                title: `موقف ${parking.type}`,
+            });
+
+            // بقية الكود كما هو
+        });
+    })
+    .catch(error => console.error('Error fetching parking data:', error));
+    console.log(parking.lat, parking.lng);
+
+    <!-- function initMap() 
+      const location = { lat: 24.7136, lng: 46.6753 }; // موقع عشوائي
+      const map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 13,
+          center: location,
+      });
+      new google.maps.Marker({
+          position: location,
+          map: map,
+      }); -->
+  
+</script>
+  
+</body>
+</html>
